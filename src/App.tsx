@@ -1,20 +1,266 @@
+import { useCallback, useMemo, useRef, useState } from "react"
+import {
+  Background,
+  ReactFlow,
+  ReactFlowProvider,
+  Panel,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  reconnectEdge,
+  useReactFlow,
+  ConnectionMode,
+  MarkerType,
+  type Edge,
+  type Connection,
+  type OnConnectEnd,
+  type DefaultEdgeOptions,
+} from "@xyflow/react"
+
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu"
+import { nodeTypes, type CircleNode } from "@/components/circle-node"
+import { Sidebar } from "@/components/sidebar"
+
+const initialNodes: CircleNode[] = [
+  {
+    id: "0",
+    type: "circle",
+    data: { label: "w0", propositions: [] },
+    position: { x: 0, y: 50 },
+  },
+]
+
+let id = 1
+const getId = () => `${id++}`
+const nodeOrigin: [number, number] = [0.5, 0.5]
+
+// Directed edges (the accessibility relation) drawn with an arrowhead.
+const defaultEdgeOptions: DefaultEdgeOptions = {
+  markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+  reconnectable: true,
+}
+
+// React Flow's built-in edge renderers: curved bezier vs. straight line.
+type EdgeVariant = "default" | "straight"
+
+type PaneMenu = { screenX: number; screenY: number } | null
+
+const Flow = () => {
+  const [nodes, setNodes, onNodesChange] = useNodesState<CircleNode>(initialNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const { screenToFlowPosition } = useReactFlow()
+
+  const [menu, setMenu] = useState<PaneMenu>(null)
+  const [edgeVariant, setEdgeVariant] = useState<EdgeVariant>("default")
+
+  // The toggle applies live to every edge, not just newly created ones.
+  const displayedEdges = useMemo(
+    () => edges.map((edge) => ({ ...edge, type: edgeVariant })),
+    [edges, edgeVariant],
+  )
+
+  // Tracks whether a reconnect drag landed on a valid handle. If not, the edge
+  // was dragged off into empty space and should be deleted.
+  const edgeReconnectSuccessful = useRef(true)
+
+  const addNodeAt = useCallback(
+    (position: { x: number; y: number }) => {
+      const newId = getId()
+      setNodes((nds) =>
+        nds.concat({
+          id: newId,
+          type: "circle",
+          position,
+          data: { label: `w${newId}`, propositions: [] },
+          origin: [0.5, 0.5],
+        }),
+      )
+    },
+    [setNodes],
+  )
+
+  const onConnect = useCallback(
+    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    [setEdges],
+  )
+
+  const onReconnectStart = useCallback(() => {
+    edgeReconnectSuccessful.current = false
+  }, [])
+
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      edgeReconnectSuccessful.current = true
+      setEdges((els) => reconnectEdge(oldEdge, newConnection, els))
+    },
+    [setEdges],
+  )
+
+  const onReconnectEnd = useCallback(
+    (_: unknown, edge: Edge) => {
+      if (!edgeReconnectSuccessful.current) {
+        setEdges((eds) => eds.filter((e) => e.id !== edge.id))
+      }
+      edgeReconnectSuccessful.current = true
+    },
+    [setEdges],
+  )
+
+  // Drop a connection onto the empty pane to spawn a new world wired up to it.
+  const onConnectEnd: OnConnectEnd = useCallback(
+    (event, connectionState) => {
+      if (connectionState.isValid) return
+
+      const newId = getId()
+      const { clientX, clientY } =
+        "changedTouches" in event ? event.changedTouches[0] : event
+
+      const newNode: CircleNode = {
+        id: newId,
+        type: "circle",
+        position: screenToFlowPosition({ x: clientX, y: clientY }),
+        data: { label: `w${newId}`, propositions: [] },
+        origin: [0.5, 0.5],
+      }
+
+      setNodes((nds) => nds.concat(newNode))
+      setEdges((eds) =>
+        addEdge(
+          {
+            source: connectionState.fromNode?.id ?? newId,
+            target: newId,
+            sourceHandle: connectionState.fromHandle?.id ?? null,
+            targetHandle: null,
+          },
+          eds,
+        ),
+      )
+    },
+    [screenToFlowPosition, setNodes, setEdges],
+  )
+
+  const onPaneContextMenu = useCallback(
+    (event: MouseEvent | React.MouseEvent) => {
+      event.preventDefault()
+      setMenu({ screenX: event.clientX, screenY: event.clientY })
+    },
+    [],
+  )
+
+  // Virtual anchor so the Base UI menu opens exactly at the cursor.
+  const menuAnchor = useMemo(() => {
+    if (!menu) return undefined
+    return {
+      getBoundingClientRect: () =>
+        new DOMRect(menu.screenX, menu.screenY, 0, 0),
+    }
+  }, [menu])
+
+  const addNodeFromMenu = useCallback(() => {
+    if (!menu) return
+    addNodeAt(
+      screenToFlowPosition({ x: menu.screenX, y: menu.screenY }),
+    )
+    setMenu(null)
+  }, [menu, addNodeAt, screenToFlowPosition])
+
+  const deleteSelected = useCallback(() => {
+    setNodes((nds) => nds.filter((n) => !n.selected))
+    setEdges((eds) => eds.filter((e) => !e.selected))
+  }, [setNodes, setEdges])
+
+  return (
+    <div className="flex h-svh w-full">
+      <Sidebar />
+      <div className="relative flex-1">
+      <ReactFlow<CircleNode, Edge>
+        nodes={nodes}
+        edges={displayedEdges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
+        onReconnect={onReconnect}
+        onReconnectStart={onReconnectStart}
+        onReconnectEnd={onReconnectEnd}
+        onPaneContextMenu={onPaneContextMenu}
+        connectionMode={ConnectionMode.Loose}
+        connectionRadius={40}
+        defaultEdgeOptions={defaultEdgeOptions}
+        deleteKeyCode={["Delete", "Backspace"]}
+        edgesReconnectable
+        fitView
+        fitViewOptions={{ padding: 2 }}
+        nodeOrigin={nodeOrigin}
+        colorMode="system"
+      >
+        <Panel position="top-left" className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              addNodeAt({
+                x: Math.random() * 300 - 150,
+                y: Math.random() * 200,
+              })
+            }
+          >
+            Add world
+          </Button>
+          <Button size="sm" variant="destructive" onClick={deleteSelected}>
+            Delete selected
+          </Button>
+        </Panel>
+        <Panel
+          position="top-right"
+          className="flex flex-col gap-2 rounded-md border bg-card/80 p-3 text-xs shadow-sm backdrop-blur"
+        >
+          <label className="flex items-center justify-between gap-4">
+            <span className="font-medium">
+              {edgeVariant === "straight" ? "Straight" : "Bezier"} edges
+            </span>
+            <Switch
+              checked={edgeVariant === "straight"}
+              onCheckedChange={(checked) =>
+                setEdgeVariant(checked ? "straight" : "default")
+              }
+            />
+          </label>
+        </Panel>
+        <Background />
+      </ReactFlow>
+
+      <ContextMenu
+        open={menu !== null}
+        onOpenChange={(open) => {
+          if (!open) setMenu(null)
+        }}
+      >
+        <ContextMenuContent anchor={menuAnchor}>
+          <ContextMenuLabel>Canvas</ContextMenuLabel>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={addNodeFromMenu}>Add world here</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      </div>
+    </div>
+  )
+}
 
 export function App() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
+    <ReactFlowProvider>
+      <Flow />
+    </ReactFlowProvider>
   )
 }
 
