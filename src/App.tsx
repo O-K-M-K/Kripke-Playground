@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/context-menu"
 import { nodeTypes, type CircleNode } from "@/components/circle-node"
 import { Sidebar } from "@/components/sidebar"
+import type { KripkeModel } from "./ModelTypes"
 
 const initialNodes: CircleNode[] = [
   {
@@ -66,6 +67,29 @@ const Flow = () => {
     () => edges.map((edge) => ({ ...edge, type: edgeVariant })),
     [edges, edgeVariant],
   )
+
+  const adjacencyMap = useMemo(() => {
+    const map = new Map<string, string[]>()
+    // Seed every node so isolated worlds (no outgoing edges) still appear.
+    for (const node of nodes) map.set(node.id, [])
+    for (const edge of edges) {
+      map.get(edge.source)?.push(edge.target)
+    }
+    return map
+  }, [nodes, edges])
+
+  const nodeById = useMemo(
+    () => new Map(nodes.map((n) => [n.id, n])),
+    [nodes],
+  )
+
+  // The bundle the model checker consumes. Everything derives from React Flow
+  // state, so it stays live as worlds, edges, and valuations change.
+  const model: KripkeModel = useMemo(
+    () => ({ nodeById, adjacency: adjacencyMap }),
+    [nodeById, adjacencyMap],
+  )
+
 
   // Tracks whether a reconnect drag landed on a valid handle. If not, the edge
   // was dragged off into empty space and should be deleted.
@@ -176,6 +200,9 @@ const Flow = () => {
     setNodes((nds) => nds.filter((n) => !n.selected))
     setEdges((eds) => eds.filter((e) => !e.selected))
   }, [setNodes, setEdges])
+
+  console.log("NODES:", nodes)
+  console.log("EDGES:", edges)
 
   return (
     <div className="flex h-svh w-full">
