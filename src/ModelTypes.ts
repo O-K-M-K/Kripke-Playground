@@ -11,12 +11,16 @@ export type KripkeModel = {
   adjacency: Map<WorldId, WorldId[]>
 }
 
-export type Formula = 
+export type Formula =
+    | { tag: "Top" }
+    | { tag: "Bot" }
     | { tag: "P"; value: string}
     | { tag: "Not"; formula: Formula}
     | { tag: "And"; left: Formula; right: Formula }
     | { tag: "Box"; formula: Formula};
 
+export const Top: Formula = { tag: "Top" };
+export const Bot: Formula = { tag: "Bot" };
 export const P = (value: string): Formula => ({ tag: "P", value });
 export const Not = (formula: Formula): Formula => ({ tag: "Not", formula });
 export const And = (left: Formula, right: Formula): Formula => ({ tag: "And", left, right });

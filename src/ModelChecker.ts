@@ -1,5 +1,4 @@
 import type { KripkeModel, WorldId, Formula } from "./ModelTypes"
-import { nodeTypes, type CircleNode } from "@/components/circle-node"
 
 
 // Building a formula
@@ -25,6 +24,8 @@ export const valuation = (
 
 export const satisfies = (m : KripkeModel, f: Formula, w: WorldId) : boolean => {
     switch (f.tag) {
+        case "Top" : return true
+        case "Bot" : return false
         case "P" : return valuation(m, w, f.value)
         case "Not" : return !satisfies(m, f.formula, w)
         case "And" : return (satisfies(m, f.left, w) && satisfies(m, f.right, w))
@@ -42,5 +43,6 @@ export const satisfies = (m : KripkeModel, f: Formula, w: WorldId) : boolean => 
 export const validInModel = (m: KripkeModel, f: Formula) : string[] => {
     const worldsIds = Array.from(m.adjacency.keys())
     return worldsIds.filter(w => satisfies(m, f, w))
+
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { createContext, useContext, useEffect, useRef, useState } from "react"
 import {
   Handle,
   Position,
@@ -15,6 +15,15 @@ export type CircleNodeData = {
 }
 
 export type CircleNode = Node<CircleNodeData, "circle">
+
+// The set of world ids satisfying the current proposition. Provided by the app
+// and read by each node so satisfaction stays derived state — it lives outside
+// the nodes the Kripke model is built from, avoiding a re-derivation loop.
+export const SatisfiedWorldsContext = createContext<Set<string>>(new Set())
+
+// Whether a proposition is currently entered. When false there is nothing for a
+// world to satisfy, so nodes stay neutral rather than reading as "invalid".
+export const FormulaActiveContext = createContext<boolean>(false)
 
 // Visible grab targets for starting a connection. They brighten on hover /
 // selection and stay faintly visible otherwise.
@@ -116,6 +125,10 @@ export function CircleNode({ id, data, selected }: NodeProps<CircleNode>) {
   const [value, setValue] = useState(data.label)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const satisfiedWorlds = useContext(SatisfiedWorldsContext)
+  const formulaActive = useContext(FormulaActiveContext)
+  const validInModel = satisfiedWorlds.has(id)
+
   // Keep the local draft in sync when the label changes elsewhere.
   useEffect(() => {
     setValue(data.label)
@@ -147,13 +160,33 @@ export function CircleNode({ id, data, selected }: NodeProps<CircleNode>) {
     })
   }
 
+  // With no proposition entered there is no satisfaction to show, so nodes stay
+  // neutral (grey, or the selection colour) instead of defaulting to "invalid" red.
+  const borderClass = !formulaActive
+    ? selected
+      ? "border-primary"
+      : "border-border"
+    : validInModel && selected
+    ? "border-green-300"
+    : !validInModel && selected
+    ? "border-red-300"
+    : selected
+    ? "border-primary"
+    : validInModel
+    ? "border-green-600"
+    : "border-red-600";
+
+  const handleOpacityClass = (validInModel && selected) || selected
+    ? "[&_.react-flow\\_\\_handle]:opacity-100!"
+    : "";
+
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div
         onDoubleClick={() => setEditing(true)}
-        className={`group flex size-24 items-center justify-center rounded-full border-2 bg-card text-center text-sm font-medium shadow-sm transition-colors ${
-          selected ? "border-primary [&_.react-flow\\_\\_handle]:opacity-100!" : "border-border"
-        }`}
+        className={`group flex size-24 items-center justify-center rounded-full border-2 bg-card text-center text-sm font-medium shadow-sm transition-colors 
+                    ${borderClass} ${handleOpacityClass}
+                    `}
       >
         {/* Loose connection mode lets each handle act as both source and target,
             which enables bidirectional and self-connecting edges. The bottom is

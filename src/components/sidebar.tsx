@@ -1,22 +1,59 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef } from "react"
+import { InlineMath } from "react-katex"
 import { replace as unicodeReplace } from "unicodeit"
 
 // unicodeit misses a couple of modal-logic staples, and renders \square filled
 // (■) rather than the hollow box logicians use. Override those to taste.
+// also gives some synonyms so is more comfortable (like lean)
 const OVERRIDES: Record<string, string> = {
-  "\\Box": "□",
+  "\\box": "□",
   "\\square": "□",
-  "\\Diamond": "◇",
+  "\\diamond": "◇",
   "\\lozenge": "◇",
 }
+
+// cannon latex left synonyms right
+const SYNONYM_GROUPS: Record<string, Array<string>> = {
+    "top" : ["t", "true"],
+    "bot" : ["f", "false", "btm"],
+    "forall" : ["all"],
+    "exists" : ["ex"],
+    "box" : ["square", "sqr"],
+    "diamond" : ["dmnd", "lozenge"],
+    "leftrightarrow" : ["iff"],
+    "to" : ["rightarrow"],
+    "land" : ["and"],
+    "lor" : ["or"]
+}
+const SYNONYM_LOOKUP: Record<string, string> = Object.fromEntries(
+    Object.entries(SYNONYM_GROUPS).flatMap(([canonical, aliases]) => [
+        [canonical, canonical],
+        ...aliases.map((alias) => [alias, canonical]),
+    ])
+);
 
 // Convert a single LaTeX command token (e.g. "\to") to its unicode symbol, or
 // null when unicodeit doesn't recognise it — in which case we leave the raw
 // command in place rather than guessing.
 function convertCommand(token: string): string | null {
-  if (token in OVERRIDES) return OVERRIDES[token]
-  const converted = unicodeReplace(token)
-  return converted !== token ? converted : null
+  const lowerToken = token.toLowerCase();
+  const bareToken = lowerToken.startsWith("\\") ? lowerToken.slice(1) : lowerToken;
+
+  const canonToken = bareToken in SYNONYM_LOOKUP ? SYNONYM_LOOKUP[bareToken] : bareToken;
+  const canonCommand = `\\${canonToken}`;
+
+  if (canonCommand in OVERRIDES) {
+    return OVERRIDES[canonCommand];
+  }
+
+  const converted = unicodeReplace(canonCommand);
+  return converted !== canonCommand ? converted : null;
+}
+
+// Roster notation for a set of world labels: "{ w0, w1 }", or the empty-set
+// glyph when there are none.
+function rosterText(labels: string[]): string {
+  return labels.length ? `{ ${labels.join(", ")} }` : "∅"
 }
 
 // A backslash command sitting right at the caret, e.g. the "\to" in "p \to".
@@ -27,10 +64,23 @@ const COMMAND_AT_CARET = /\\[a-zA-Z]+$/
 const LATEX_FONT =
   "'KaTeX_Main', 'KaTeX_Math', 'Cambria Math', 'Times New Roman', serif"
 
+type SidebarProps = {
+  value: string
+  onValueChange: (value: string) => void
+  // A short parse-status message, or null when the formula is valid/empty.
+  error?: string | null
+  // Labels of the worlds satisfying the current proposition, resolved from ids
+  // upstream so custom renames show through (and duplicates are allowed).
+  satisfiedLabels: string[]
+  // Labels of the worlds where the proposition fails (the complement set).
+  unsatisfiedLabels: string[]
+}
+
 // Left rail with a MathLive-style proposition field: type a LaTeX command and
-// press space to swap it, in place, for the matching unicode symbol.
-export function Sidebar() {
-  const [value, setValue] = useState("")
+// press space to swap it, in place, for the matching unicode symbol. The value
+// is owned by the parent so it can also be fed to the parser.
+export function Sidebar({ value, onValueChange, error, satisfiedLabels, unsatisfiedLabels }: SidebarProps) {
+  // □ (a → b) ◇ (∀ p → ∃ q)
   const inputRef = useRef<HTMLInputElement>(null)
   // Caret to restore after we rewrite the value programmatically.
   const caretRef = useRef<number | null>(null)
@@ -41,6 +91,7 @@ export function Sidebar() {
       caretRef.current = null
     }
   })
+
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== " ") return
@@ -61,7 +112,7 @@ export function Sidebar() {
     e.preventDefault()
     const head = before.slice(0, before.length - match[0].length)
     const after = value.slice(pos)
-    setValue(head + symbol + " " + after)
+    onValueChange(head + symbol + " " + after)
     caretRef.current = head.length + symbol.length + 1
   }
 
@@ -74,14 +125,17 @@ export function Sidebar() {
         id="proposition"
         ref={inputRef}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => onValueChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={"\\Box (p \\to q)"}
+        placeholder={"\\box (p \\to q)"}
         spellCheck={false}
         autoComplete="off"
         style={{ fontFamily: LATEX_FONT }}
         className="rounded-md border border-input bg-background px-3 py-2 text-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
       />
+      {error && value.trim() ? (
+        <p className="text-xs text-destructive">{error}</p>
+      ) : null}
       <p className="text-xs text-muted-foreground">
         Type a command like <code className="font-mono">{"\\to"}</code>,{" "}
         <code className="font-mono">{"\\Box"}</code> or{" "}
@@ -89,6 +143,28 @@ export function Sidebar() {
         <kbd className="rounded border border-border bg-muted px-1">space</kbd>{" "}
         to insert its symbol.
       </p>
+      <p className="text-xs">Reference (captials don't matter). Typical synonyms and common latex are also supported</p>
+      <p className="text-md font-mono" style={{fontFamily: LATEX_FONT}}/>
+                <div className="grid grid-cols-2 gap-1 text-center ">
+                    <div>\box</div> <div>□</div>
+                    <div>\dmnd</div> <div>◇</div>
+                    <div>\t</div> <div>⊤</div>
+                    <div>\f</div> <div>⊥</div>
+                    <div>\to</div> <div>→</div>
+                </div>
+      <div>
+        Valid set <InlineMath math="\{\, w : w \Vdash A \,\}" />
+      </div>
+      <div className="border-2 border-dotted rounded-md border-green-600 p-2 text-lg">
+        {rosterText(satisfiedLabels)}
+      </div>
+      <div>
+        Invalid set <InlineMath math="\{\, w : w \nVdash A \,\}" />
+      </div>
+      <div className="border-2 border-dotted rounded-md border-red-600 p-2 text-lg">
+        {rosterText(unsatisfiedLabels)}
+      </div>
+      <p>Inspired by: <a>https://rkirsling.github.io/modallogic/</a> </p>
     </aside>
   )
 }

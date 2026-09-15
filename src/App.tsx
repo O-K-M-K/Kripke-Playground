@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Background,
   ReactFlow,
@@ -26,8 +26,10 @@ import {
   ContextMenuLabel,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu"
-import { nodeTypes, type CircleNode } from "@/components/circle-node"
+import { nodeTypes, SatisfiedWorldsContext, FormulaActiveContext, type CircleNode } from "@/components/circle-node"
 import { Sidebar } from "@/components/sidebar"
+import { parseFormula } from "./formulaFromAst"
+import { validInModel } from "./ModelChecker"
 import type { KripkeModel } from "./ModelTypes"
 
 const initialNodes: CircleNode[] = [
@@ -62,6 +64,20 @@ const Flow = () => {
   const [menu, setMenu] = useState<PaneMenu>(null)
   const [edgeVariant, setEdgeVariant] = useState<EdgeVariant>("default")
 
+  // The proposition typed in the sidebar. Owned here so it can be handed both to
+  // the sidebar (for editing) and to the parser.
+  const [proposition, setProposition] = useState("")
+
+  // World ids satisfying the current proposition. Derived from the model, but
+  // kept in its own state (not written back into `nodes`) so the model never
+  // depends on its own output. Nodes read it via SatisfiedWorldsContext.
+  const [satisfiedWorlds, setSatisfiedWorlds] = useState<Set<string>>(new Set())
+
+  // Non-null while the current proposition can't be parsed (incomplete or
+  // invalid). Shown in the sidebar rather than logged, since a half-typed
+  // formula failing to parse is expected, not an error.
+  const [formulaError, setFormulaError] = useState<string | null>(null)
+
   // The toggle applies live to every edge, not just newly created ones.
   const displayedEdges = useMemo(
     () => edges.map((edge) => ({ ...edge, type: edgeVariant })),
@@ -83,12 +99,55 @@ const Flow = () => {
     [nodes],
   )
 
+  // Display labels of the satisfying worlds. Resolved from ids (which stay the
+  // unique key we match on) so renamed worlds show their custom label, even if
+  // two worlds happen to share one.
+  const satisfiedLabels = useMemo(
+    () =>
+      Array.from(satisfiedWorlds)
+        .map((worldId) => nodeById.get(worldId)?.data.label)
+        .filter((label): label is string => label !== undefined),
+    [satisfiedWorlds, nodeById],
+  )
+
+  // Labels of the worlds where the proposition fails: the complement of the
+  // satisfying set over every world. Empty when no proposition is entered,
+  // since without an A there is nothing for a world to falsify.
+  const unsatisfiedLabels = useMemo(
+    () =>
+      proposition.trim()
+        ? nodes
+            .filter((node) => !satisfiedWorlds.has(node.id))
+            .map((node) => node.data.label)
+        : [],
+    [proposition, nodes, satisfiedWorlds],
+  )
+
   // The bundle the model checker consumes. Everything derives from React Flow
   // state, so it stays live as worlds, edges, and valuations change.
   const model: KripkeModel = useMemo(
     () => ({ nodeById, adjacency: adjacencyMap }),
     [nodeById, adjacencyMap],
   )
+
+  // Parse the proposition into a checkable Formula whenever it (or the model)
+  // changes, then record which worlds satisfy it.
+  useEffect(() => {
+    if (!proposition.trim()) {
+      setSatisfiedWorlds(new Set())
+      setFormulaError(null)
+      return
+    }
+    try {
+      const formula = parseFormula(proposition)
+      setSatisfiedWorlds(new Set(validInModel(model, formula)))
+      setFormulaError(null)
+    } catch (err) {
+      // Incomplete or invalid formula — surface it in the UI, keep the last
+      // valid highlight so the graph doesn't flicker mid-edit.
+      setFormulaError(err instanceof Error ? err.message : String(err))
+    }
+  }, [proposition, model])
 
 
   // Tracks whether a reconnect drag landed on a valid handle. If not, the edge
@@ -201,12 +260,18 @@ const Flow = () => {
     setEdges((eds) => eds.filter((e) => !e.selected))
   }, [setNodes, setEdges])
 
-  console.log("NODES:", nodes)
-  console.log("EDGES:", edges)
 
   return (
+    <SatisfiedWorldsContext.Provider value={satisfiedWorlds}>
+    <FormulaActiveContext.Provider value={Boolean(proposition.trim())}>
     <div className="flex h-svh w-full">
-      <Sidebar />
+      <Sidebar
+        value={proposition}
+        onValueChange={setProposition}
+        error={formulaError}
+        satisfiedLabels={satisfiedLabels}
+        unsatisfiedLabels={unsatisfiedLabels}
+      />
       <div className="relative flex-1">
       <ReactFlow<CircleNode, Edge>
         nodes={nodes}
@@ -280,6 +345,8 @@ const Flow = () => {
       </ContextMenu>
       </div>
     </div>
+    </FormulaActiveContext.Provider>
+    </SatisfiedWorldsContext.Provider>
   )
 }
 
