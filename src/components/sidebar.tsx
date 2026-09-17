@@ -1,54 +1,7 @@
 import { useLayoutEffect, useRef } from "react"
 import { InlineMath } from "react-katex"
-import { replace as unicodeReplace } from "unicodeit"
-
-// unicodeit misses a couple of modal-logic staples, and renders \square filled
-// (■) rather than the hollow box logicians use. Override those to taste.
-// also gives some synonyms so is more comfortable (like lean)
-const OVERRIDES: Record<string, string> = {
-  "\\box": "□",
-  "\\square": "□",
-  "\\diamond": "◇",
-  "\\lozenge": "◇",
-}
-
-// cannon latex left synonyms right
-const SYNONYM_GROUPS: Record<string, Array<string>> = {
-    "top" : ["t", "true"],
-    "bot" : ["f", "false", "btm"],
-    "forall" : ["all"],
-    "exists" : ["ex"],
-    "box" : ["square", "sqr"],
-    "diamond" : ["dmnd", "lozenge"],
-    "leftrightarrow" : ["iff"],
-    "to" : ["rightarrow"],
-    "land" : ["and"],
-    "lor" : ["or"]
-}
-const SYNONYM_LOOKUP: Record<string, string> = Object.fromEntries(
-    Object.entries(SYNONYM_GROUPS).flatMap(([canonical, aliases]) => [
-        [canonical, canonical],
-        ...aliases.map((alias) => [alias, canonical]),
-    ])
-);
-
-// Convert a single LaTeX command token (e.g. "\to") to its unicode symbol, or
-// null when unicodeit doesn't recognise it — in which case we leave the raw
-// command in place rather than guessing.
-function convertCommand(token: string): string | null {
-  const lowerToken = token.toLowerCase();
-  const bareToken = lowerToken.startsWith("\\") ? lowerToken.slice(1) : lowerToken;
-
-  const canonToken = bareToken in SYNONYM_LOOKUP ? SYNONYM_LOOKUP[bareToken] : bareToken;
-  const canonCommand = `\\${canonToken}`;
-
-  if (canonCommand in OVERRIDES) {
-    return OVERRIDES[canonCommand];
-  }
-
-  const converted = unicodeReplace(canonCommand);
-  return converted !== canonCommand ? converted : null;
-}
+import { HoverTerm } from "./hover-term"
+import { convertCommand } from "@/lib/formulaSyntax"
 
 // Roster notation for a set of world labels: "{ w0, w1 }", or the empty-set
 // glyph when there are none.
@@ -165,6 +118,12 @@ export function Sidebar({ value, onValueChange, error, satisfiedLabels, unsatisf
         {rosterText(unsatisfiedLabels)}
       </div>
       <p>Inspired by: <a>https://rkirsling.github.io/modallogic/</a> </p>
+
+      <p className=""> Text markdown text conversion jazz goes here!
+        <HoverTerm hover={<InlineMath math="abc \in \mathbb{Z}"/>}><InlineMath math="\{\, w : w \Vdash A \, \}"/></HoverTerm>
+      </p>
+
+      <p>Kripke Models have <HoverTerm hover="nodes in our graph">worlds</HoverTerm></p>
     </aside>
   )
 }

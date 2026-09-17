@@ -6,11 +6,14 @@ import "katex/dist/katex.min.css"
 import "./index.css"
 import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider>
-      <App />
+        <TooltipProvider>
+            <App />
+        </TooltipProvider>
     </ThemeProvider>
   </StrictMode>
 )

@@ -16,6 +16,8 @@ import {
   type OnConnectEnd,
   type DefaultEdgeOptions,
 } from "@xyflow/react"
+import type { PanelImperativeHandle } from "react-resizable-panels"
+import { PanelRightClose, PanelRightOpen } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -26,11 +28,15 @@ import {
   ContextMenuLabel,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { nodeTypes, SatisfiedWorldsContext, FormulaActiveContext, type CircleNode } from "@/components/circle-node"
 import { Sidebar } from "@/components/sidebar"
+import { RightSidebar } from "@/components/right-sidebar"
 import { parseFormula } from "./formulaFromAst"
 import { validInModel } from "./ModelChecker"
 import type { KripkeModel } from "./ModelTypes"
+import { LoadModelContext, type LoadModel } from "@/lib/loadModel"
 
 const initialNodes: CircleNode[] = [
   {
@@ -59,10 +65,23 @@ type PaneMenu = { screenX: number; screenY: number } | null
 const Flow = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<CircleNode>(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, fitView } = useReactFlow()
 
   const [menu, setMenu] = useState<PaneMenu>(null)
   const [edgeVariant, setEdgeVariant] = useState<EdgeVariant>("default")
+
+  // The right rail is a collapsible ResizablePanel; we drive it imperatively
+  // (v4 exposes collapse/expand through the `panelRef` prop, not React's ref)
+  // and mirror its collapsed state so the canvas toggle shows the right icon.
+  const rightPanelRef = useRef<PanelImperativeHandle>(null)
+  const [rightCollapsed, setRightCollapsed] = useState(false)
+
+  const toggleRightPanel = useCallback(() => {
+    const panel = rightPanelRef.current
+    if (!panel) return
+    if (panel.isCollapsed()) panel.expand()
+    else panel.collapse()
+  }, [])
 
   // The proposition typed in the sidebar. Owned here so it can be handed both to
   // the sidebar (for editing) and to the parser.
@@ -84,19 +103,24 @@ const Flow = () => {
     [edges, edgeVariant],
   )
 
-  const adjacencyMap = useMemo(() => {
-    const map = new Map<string, string[]>()
-    // Seed every node so isolated worlds (no outgoing edges) still appear.
-    for (const node of nodes) map.set(node.id, [])
-    for (const edge of edges) {
-      map.get(edge.source)?.push(edge.target)
-    }
-    return map
-  }, [nodes, edges])
-
   const nodeById = useMemo(
     () => new Map(nodes.map((n) => [n.id, n])),
     [nodes],
+  )
+
+  // A fingerprint of everything the model checker actually cares about — world
+  // ids, their valuations, and the accessibility relation — but NOT positions.
+  // Dragging a node rewrites `nodes` every frame; without this, `model` (and the
+  // checking effect below) would recompute on every frame of a drag. Keying the
+  // model on a value that ignores positions keeps its reference stable while a
+  // world is only being moved, so the checker runs on genuine model changes.
+  const modelSignature = useMemo(
+    () =>
+      JSON.stringify({
+        worlds: nodes.map((n) => [n.id, n.data.propositions]),
+        edges: edges.map((e) => [e.source, e.target]),
+      }),
+    [nodes, edges],
   )
 
   // Display labels of the satisfying worlds. Resolved from ids (which stay the
@@ -123,12 +147,19 @@ const Flow = () => {
     [proposition, nodes, satisfiedWorlds],
   )
 
-  // The bundle the model checker consumes. Everything derives from React Flow
-  // state, so it stays live as worlds, edges, and valuations change.
-  const model: KripkeModel = useMemo(
-    () => ({ nodeById, adjacency: adjacencyMap }),
-    [nodeById, adjacencyMap],
-  )
+  // The bundle the model checker consumes. Rebuilt only when `modelSignature`
+  // changes (worlds, valuations, or edges) — never for a mere position change —
+  // so it stays live without churning on every drag frame.
+  const model: KripkeModel = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    const adjacency = new Map<string, string[]>()
+    // Seed every node so isolated worlds (no outgoing edges) still appear.
+    for (const node of nodes) adjacency.set(node.id, [])
+    for (const edge of edges) adjacency.get(edge.source)?.push(edge.target)
+    return { nodeById: byId, adjacency }
+    // Intentionally keyed on the position-free signature, not nodes/edges.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelSignature])
 
   // Parse the proposition into a checkable Formula whenever it (or the model)
   // changes, then record which worlds satisfy it.
@@ -260,19 +291,67 @@ const Flow = () => {
     setEdges((eds) => eds.filter((e) => !e.selected))
   }, [setNodes, setEdges])
 
+  // Replace the current graph with a model parsed from a ```demo block. Worlds
+  // are laid out on a circle (React Flow doesn't carry positions); `fitView`
+  // reframes once the new nodes commit.
+  const loadModel = useCallback<LoadModel>(
+    (demo) => {
+      const n = demo.worlds.length
+      const radius = Math.max(160, n * 45)
+      const newNodes: CircleNode[] = demo.worlds.map((world, i) => {
+        const angle = (2 * Math.PI * i) / n
+        return {
+          id: world.name,
+          type: "circle",
+          position:
+            n === 1
+              ? { x: 0, y: 0 }
+              : { x: radius * Math.cos(angle), y: radius * Math.sin(angle) },
+          data: { label: world.name, propositions: world.propositions },
+          origin: nodeOrigin,
+        }
+      })
+
+      // Dedupe edges by id so a repeated / bidirectional pair can't collide.
+      const edgeById = new Map<string, Edge>()
+      for (const { source, target } of demo.relation) {
+        const edgeId = `${source}->${target}`
+        edgeById.set(edgeId, { id: edgeId, source, target, ...defaultEdgeOptions })
+      }
+
+      // Keep the auto-id counter clear of any numeric world names so later
+      // "Add world" clicks can't reuse a loaded id.
+      id = demo.worlds.reduce((max, world) => {
+        const parsed = Number(world.name)
+        return Number.isInteger(parsed) && parsed >= max ? parsed + 1 : max
+      }, 1)
+
+      setNodes(newNodes)
+      setEdges([...edgeById.values()])
+      setProposition(demo.formula)
+      requestAnimationFrame(() => fitView({ padding: 2 }))
+    },
+    [setNodes, setEdges, setProposition, fitView],
+  )
+
 
   return (
+    <LoadModelContext.Provider value={loadModel}>
     <SatisfiedWorldsContext.Provider value={satisfiedWorlds}>
     <FormulaActiveContext.Provider value={Boolean(proposition.trim())}>
     <div className="flex h-svh w-full">
-      <Sidebar
-        value={proposition}
-        onValueChange={setProposition}
-        error={formulaError}
-        satisfiedLabels={satisfiedLabels}
-        unsatisfiedLabels={unsatisfiedLabels}
-      />
-      <div className="relative flex-1">
+      <ScrollArea>
+          <Sidebar
+            value={proposition}
+            onValueChange={setProposition}
+            error={formulaError}
+            satisfiedLabels={satisfiedLabels}
+            unsatisfiedLabels={unsatisfiedLabels}
+          />
+      </ScrollArea>
+      <div className="relative min-w-0 flex-1">
+      <ResizablePanelGroup orientation="horizontal" className="h-full">
+      <ResizablePanel minSize="30%" className="relative">
       <ReactFlow<CircleNode, Edge>
         nodes={nodes}
         edges={displayedEdges}
@@ -312,10 +391,8 @@ const Flow = () => {
             Delete selected
           </Button>
         </Panel>
-        <Panel
-          position="top-right"
-          className="flex flex-col gap-2 rounded-md border bg-card/80 p-3 text-xs shadow-sm backdrop-blur"
-        >
+        <Panel position="top-right" className="flex items-start gap-2">
+          <div className="flex flex-col gap-2 rounded-md border bg-card/80 p-3 text-xs shadow-sm backdrop-blur">
           <label className="flex items-center justify-between gap-4">
             <span className="font-medium">
               {edgeVariant === "straight" ? "Straight" : "Bezier"} edges
@@ -327,6 +404,16 @@ const Flow = () => {
               }
             />
           </label>
+          </div>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={toggleRightPanel}
+            aria-label={rightCollapsed ? "Show right panel" : "Hide right panel"}
+            title={rightCollapsed ? "Show right panel" : "Hide right panel"}
+          >
+            {rightCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
+          </Button>
         </Panel>
         <Background />
       </ReactFlow>
@@ -343,10 +430,26 @@ const Flow = () => {
           <ContextMenuItem onClick={addNodeFromMenu}>Add world here</ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel
+        panelRef={rightPanelRef}
+        collapsible
+        collapsedSize="0%"
+        minSize="15%"
+        defaultSize="20%"
+        maxSize="40%"
+        onResize={(size) => setRightCollapsed(size.asPercentage === 0)}
+        className="min-w-0"
+      >
+        <RightSidebar />
+      </ResizablePanel>
+      </ResizablePanelGroup>
       </div>
     </div>
     </FormulaActiveContext.Provider>
     </SatisfiedWorldsContext.Provider>
+    </LoadModelContext.Provider>
   )
 }
 

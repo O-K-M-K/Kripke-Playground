@@ -131,3 +131,9 @@
     @apply font-sans;
     }
 }
+
+/* Make the subscript smaller */
+.katex .msupsub .mtight {
+  font-size: 0.7em;
+}
+
