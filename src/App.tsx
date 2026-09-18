@@ -33,9 +33,9 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { nodeTypes, SatisfiedWorldsContext, FormulaActiveContext, type CircleNode } from "@/components/circle-node"
 import { Sidebar } from "@/components/sidebar"
 import { RightSidebar } from "@/components/right-sidebar"
-import { parseFormula } from "./formulaFromAst"
-import { validInModel } from "./ModelChecker"
-import type { KripkeModel } from "./ModelTypes"
+import { parseFormula } from "@/lib/formulaFromAst"
+import { validInModel } from "@/lib/ModelChecker"
+import type { KripkeModel } from "@/lib/ModelTypes"
 import { LoadModelContext, type LoadModel } from "@/lib/loadModel"
 
 const initialNodes: CircleNode[] = [

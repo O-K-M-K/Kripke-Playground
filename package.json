@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:grammar": "nearleyc src/modal.ne -o src/modal.js && node scripts/esmify-grammar.mjs src/modal.js",
+    "build:grammar": "nearleyc src/lib/modal.ne -o src/lib/modal.js && node scripts/esmify-grammar.mjs src/lib/modal.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",

@@ -151,7 +151,23 @@ Currently we are using the word *world* but we haven't really defined what we me
 
 
 # Exercise
+What does this mean?
+$$
+\Diamond \Box p \to \Box \Diamond p 
+$$
+If it is possible that it is necessary that it rains then it is neccessary that it is possible it rains
 
-$$
-w0 = w_0 = w^0
-$$
+
+![[Pasted image 20260917163935.png]]
+
+$w_1$ we start with $\Box p$. Does every successor satisfy $p$ yes. $\Diamond \Box p$ does some successor satisfy $\Box p$ yes because $w_5$ and $w_6$ do. 
+Ok so we go to the second bit
+$\Box \Diamond p$ 
+
+Does at least one sucsessor satisfy $p$. Yes $w_5$ . Does every sucsessor satisfy $\Diamond p$ . $w_5$ does not satisfy it so its false.
+
+$w_0$ we start with $\Diamond \Box p$ .
+
+$p$ is true at $w_1$ so $\Box p$ is true. Then its asking if at least one successor satisfies $\Box p$ which $w_1$ does. So we now move to the then side of the statmement. Because the left side was true the right side must be true for the overall statement to be true.
+
+$\Diamond p$ is asking if at least one sucsessor satisfies $p$ which $w_0$ does. $\Box \Diamond p$ is asking if every sucsessor satisfies that so yes. 
