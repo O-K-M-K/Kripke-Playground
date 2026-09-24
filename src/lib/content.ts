@@ -6,19 +6,13 @@ const files = import.meta.glob("../content/*.md", {
   eager: true,
 }) as Record<string, string>
 
-// Map bare file names (with and without the .md extension) to their contents.
+// file name to content
 const byName = new Map<string, string>()
 for (const [path, content] of Object.entries(files)) {
   const base = path.split("/").pop()! // e.g. "explainer.md"
   byName.set(base, content)
-  byName.set(base.replace(/\.md$/, ""), content) // e.g. "explainer"
 }
 
-/**
- * Read a Markdown file from `src/content` by name. The `.md` extension is
- * optional, so both `readContent("explainer")` and `readContent("explainer.md")`
- * work. Throws if no such file exists.
- */
 export function readContent(name: string): string {
   const content = byName.get(name)
   if (content === undefined) {

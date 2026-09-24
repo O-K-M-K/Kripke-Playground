@@ -31,8 +31,11 @@ import {
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { nodeTypes, SatisfiedWorldsContext, FormulaActiveContext, type CircleNode } from "@/components/circle-node"
+import { SelfLoopEdge } from "@/components/self-loop-edge"
+import { RelationEdge } from "@/components/relation-edge"
 import { Sidebar } from "@/components/sidebar"
 import { RightSidebar } from "@/components/right-sidebar"
+import { layoutNodes, type LayoutAlgorithm } from "@/lib/layout"
 import { parseFormula } from "@/lib/formulaFromAst"
 import { validInModel } from "@/lib/ModelChecker"
 import type { KripkeModel } from "@/lib/ModelTypes"
@@ -60,6 +63,14 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
 // React Flow's built-in edge renderers: curved bezier vs. straight line.
 type EdgeVariant = "default" | "straight"
 
+// Accent for the hovered edge (stroke + arrowhead). Matches the link blue used
+// elsewhere and reads on both light and dark canvases.
+const EDGE_HOVER_COLOR = "#3b82f6"
+
+// Self-loops arc around the node (SelfLoopEdge); every other edge goes through
+// RelationEdge, which bows reciprocal pairs apart so direction stays readable.
+const edgeTypes = { selfloop: SelfLoopEdge, relation: RelationEdge }
+
 type PaneMenu = { screenX: number; screenY: number } | null
 
 const Flow = () => {
@@ -69,6 +80,9 @@ const Flow = () => {
 
   const [menu, setMenu] = useState<PaneMenu>(null)
   const [edgeVariant, setEdgeVariant] = useState<EdgeVariant>("default")
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
+  const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>("layered")
+  const [isLayouting, setIsLayouting] = useState(false)
 
   // The right rail is a collapsible ResizablePanel; we drive it imperatively
   // (v4 exposes collapse/expand through the `panelRef` prop, not React's ref)
@@ -97,11 +111,46 @@ const Flow = () => {
   // formula failing to parse is expected, not an error.
   const [formulaError, setFormulaError] = useState<string | null>(null)
 
-  // The toggle applies live to every edge, not just newly created ones.
-  const displayedEdges = useMemo(
-    () => edges.map((edge) => ({ ...edge, type: edgeVariant })),
-    [edges, edgeVariant],
-  )
+  // Resolve each edge's renderer and shape. Self-loops get SelfLoopEdge; every
+  // other edge is a RelationEdge carrying the current bezier/straight variant.
+  // Edges whose reverse also exists are flagged `bidirectional` so RelationEdge
+  // bows the pair into two distinct lanes. The toggle applies live to all edges.
+  //
+  // Hovering an edge highlights it (thicker blue stroke + matching arrowhead,
+  // raised above its neighbours) and dims every other edge, so a single relation
+  // stays traceable through a crowded graph.
+  const displayedEdges = useMemo(() => {
+    const present = new Set(edges.map((e) => `${e.source}->${e.target}`))
+    const anyHovered = hoveredEdgeId !== null
+    return edges.map((edge) => {
+      const hovered = edge.id === hoveredEdgeId
+      const style = {
+        ...edge.style,
+        ...(hovered
+          ? { stroke: EDGE_HOVER_COLOR, strokeWidth: 3 }
+          : { opacity: anyHovered ? 0.2 : 1 }),
+      }
+      const markerEnd = {
+        type: MarkerType.ArrowClosed,
+        width: 18,
+        height: 18,
+        ...(hovered ? { color: EDGE_HOVER_COLOR } : {}),
+      }
+      const base = { ...edge, style, markerEnd, zIndex: hovered ? 1000 : 0 }
+      if (edge.source === edge.target) {
+        return { ...base, type: "selfloop" }
+      }
+      return {
+        ...base,
+        type: "relation",
+        data: {
+          ...edge.data,
+          variant: edgeVariant,
+          bidirectional: present.has(`${edge.target}->${edge.source}`),
+        },
+      }
+    })
+  }, [edges, edgeVariant, hoveredEdgeId])
 
   const nodeById = useMemo(
     () => new Map(nodes.map((n) => [n.id, n])),
@@ -206,6 +255,25 @@ const Flow = () => {
     [setEdges],
   )
 
+  const onEdgeMouseEnter = useCallback(
+    (_: React.MouseEvent, edge: Edge) => setHoveredEdgeId(edge.id),
+    [],
+  )
+  const onEdgeMouseLeave = useCallback(() => setHoveredEdgeId(null), [])
+
+  // Re-position every world with ELK, then reframe. Runs on demand (the
+  // "Auto-layout" button) rather than continuously, so manual drags are kept.
+  const runLayout = useCallback(async () => {
+    setIsLayouting(true)
+    try {
+      const laidOut = await layoutNodes(nodes, edges, layoutAlgorithm)
+      setNodes(laidOut)
+      requestAnimationFrame(() => fitView({ padding: 2 }))
+    } finally {
+      setIsLayouting(false)
+    }
+  }, [nodes, edges, layoutAlgorithm, setNodes, fitView])
+
   const onReconnectStart = useCallback(() => {
     edgeReconnectSuccessful.current = false
   }, [])
@@ -292,8 +360,8 @@ const Flow = () => {
   }, [setNodes, setEdges])
 
   // Replace the current graph with a model parsed from a ```demo block. Worlds
-  // are laid out on a circle (React Flow doesn't carry positions); `fitView`
-  // reframes once the new nodes commit.
+  // start on a circle (used as-is if layout fails), then ELK repositions them
+  // with the currently selected algorithm; `fitView` reframes once committed.
   const loadModel = useCallback<LoadModel>(
     (demo) => {
       const n = demo.worlds.length
@@ -326,12 +394,22 @@ const Flow = () => {
         return Number.isInteger(parsed) && parsed >= max ? parsed + 1 : max
       }, 1)
 
+      const newEdges = [...edgeById.values()]
       setNodes(newNodes)
-      setEdges([...edgeById.values()])
+      setEdges(newEdges)
       setProposition(demo.formula)
-      requestAnimationFrame(() => fitView({ padding: 2 }))
+
+      // Auto-layout the freshly loaded model with the selected algorithm, then
+      // reframe. On failure the circular positions above remain. Nodes aren't
+      // measured yet, so ELK uses fallback dimensions — fine for initial placement.
+      layoutNodes(newNodes, newEdges, layoutAlgorithm)
+        .then((laidOut) => setNodes(laidOut))
+        .catch(() => {})
+        .finally(() =>
+          requestAnimationFrame(() => fitView({ padding: 2 })),
+        )
     },
-    [setNodes, setEdges, setProposition, fitView],
+    [setNodes, setEdges, setProposition, fitView, layoutAlgorithm],
   )
 
 
@@ -356,10 +434,13 @@ const Flow = () => {
         nodes={nodes}
         edges={displayedEdges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onConnectEnd={onConnectEnd}
+        onEdgeMouseEnter={onEdgeMouseEnter}
+        onEdgeMouseLeave={onEdgeMouseLeave}
         onReconnect={onReconnect}
         onReconnectStart={onReconnectStart}
         onReconnectEnd={onReconnectEnd}
@@ -404,6 +485,25 @@ const Flow = () => {
               }
             />
           </label>
+          <label className="flex items-center justify-between gap-4">
+            <span className="font-medium">
+              {layoutAlgorithm === "stress" ? "Organic" : "Layered"} layout
+            </span>
+            <Switch
+              checked={layoutAlgorithm === "stress"}
+              onCheckedChange={(checked) =>
+                setLayoutAlgorithm(checked ? "stress" : "layered")
+              }
+            />
+          </label>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={runLayout}
+            disabled={isLayouting}
+          >
+            {isLayouting ? "Laying out…" : "Auto-layout"}
+          </Button>
           </div>
           <Button
             size="icon"
@@ -438,7 +538,7 @@ const Flow = () => {
         collapsedSize="0%"
         minSize="15%"
         defaultSize="20%"
-        maxSize="40%"
+        maxSize="60%"
         onResize={(size) => setRightCollapsed(size.asPercentage === 0)}
         className="min-w-0"
       >

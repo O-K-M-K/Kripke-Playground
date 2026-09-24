@@ -1,11 +1,12 @@
 /**
  * Our one non-standard bit of syntax layered on top of Markdown:
  *
- *   (label){hover}
+ *   [label]{hover}
  *
- * `label` is shown inline; `hover` is revealed in a tooltip. Braces (rather than
- * the `[...]` of the old syntax) are used for the hover so it does not collide
- * with Markdown's own link/reference brackets.
+ * `label` is shown inline; `hover` is revealed in a tooltip. A `[label]` that is
+ * not immediately followed by `{` is left untouched, so it can't be mistaken for
+ * a tooltip — ordinary Markdown links (`[text](url)`) and references
+ * (`[text][ref]`) pass through unchanged.
  *
  * Markdown tokenises emphasis (`**`, `*`) and math (`$...$`) while it *parses*,
  * before any plugin can run — so a tooltip whose label or hover contains those
@@ -16,18 +17,18 @@
  *
  * `label`/`hover` are URI-encoded raw Markdown, so they may contain further
  * math, emphasis, or nested tooltips; the {@link RichText} component decodes and
- * renders each recursively. A backslash escapes the opening `(`.
+ * renders each recursively. A backslash escapes the opening `[`.
  */
 export const TOOLTIP_TAG = "kripke-tooltip"
 
-/** Rewrite every `(label){hover}` in `input` into a `<kripke-tooltip>` element. */
+/** Rewrite every `[label]{hover}` in `input` into a `<kripke-tooltip>` element. */
 export function encodeTooltips(input: string): string {
   let out = ""
   let i = 0
   while (i < input.length) {
     const c = input[i]
 
-    // Preserve escapes verbatim so Markdown handles them (`\(` -> literal `(`).
+    // Preserve escapes verbatim so Markdown handles them (`\[` -> literal `[`).
     if (c === "\\" && i + 1 < input.length) {
       out += input[i] + input[i + 1]
       i += 2
@@ -35,7 +36,7 @@ export function encodeTooltips(input: string): string {
     }
 
     // Copy code spans/fences verbatim: text inside backticks is literal in
-    // Markdown, so `(x){y}` there must not be treated as a tooltip.
+    // Markdown, so `[x]{y}` there must not be treated as a tooltip.
     if (c === "`") {
       const code = skipCode(input, i)
       out += input.slice(i, code)
@@ -43,7 +44,7 @@ export function encodeTooltips(input: string): string {
       continue
     }
 
-    if (c === "(") {
+    if (c === "[") {
       const tooltip = parseTooltip(input, i)
       if (tooltip) {
         const label = encodeURIComponent(tooltip.label)
@@ -60,12 +61,12 @@ export function encodeTooltips(input: string): string {
   return out
 }
 
-/** Parse a `(label){hover}` beginning at `pos` (where `input[pos] === "("`). */
+/** Parse a `[label]{hover}` beginning at `pos` (where `input[pos] === "["`). */
 function parseTooltip(
   input: string,
   pos: number,
 ): { label: string; hover: string; end: number } | null {
-  const label = scanSpan(input, pos, "(", ")")
+  const label = scanSpan(input, pos, "[", "]")
   if (!label) return null
   if (input[label.end] !== "{") return null
 

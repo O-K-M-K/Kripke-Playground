@@ -33,9 +33,7 @@ type SidebarProps = {
 // press space to swap it, in place, for the matching unicode symbol. The value
 // is owned by the parent so it can also be fed to the parser.
 export function Sidebar({ value, onValueChange, error, satisfiedLabels, unsatisfiedLabels }: SidebarProps) {
-  // □ (a → b) ◇ (∀ p → ∃ q)
   const inputRef = useRef<HTMLInputElement>(null)
-  // Caret to restore after we rewrite the value programmatically.
   const caretRef = useRef<number | null>(null)
 
   useLayoutEffect(() => {

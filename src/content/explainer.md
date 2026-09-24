@@ -1,7 +1,7 @@
 # How it works
 This tab on the right is the lesson. Use the navigation bar at the top to move through lessons. Lessons have numerous interactive elements.
 
-(Tooltips){Hi I'm a tooltip} to remind you of definitions or key facts relating to certain words as you move through the lesson. They look like (this){Hi I'm another tooltip!} and will often just contain a bit of information to contextualise the word or remind you of the definition. Maths will also sometimes have tooltips ($\{x \mid x \lt 8 \land \in \mathbb{R} \}$){the set of real numbers less than 8} or tooltips will have (maths){$\sum_{i=0}^n \frac1i$}.
+[Tooltips]{Hi I'm a tooltip} to remind you of definitions or key facts relating to certain words as you move through the lesson. They look like [this]{Hi I'm another tooltip!} and will often just contain a bit of information to contextualise the word or remind you of the definition. Maths will also sometimes have tooltips [$\{x \mid x \lt 8 \land \in \mathbb{R} \}$]{the set of real numbers less than 8} or tooltips will have [maths]{$\sum_{i=0}^n \frac1i$}.
 
 
 If you see a button like this:
@@ -16,7 +16,7 @@ bob: q, r
 formula: \Box(p\to q)
 ```
 click it to insert the Kripke Model and formula currently being talked about into the graph on the left. 
-# Personal syntax nodes
+# Personal syntax notes 
 
 Use code blocks with the language `Demo` to create demo buttons to auto load kripke frames and formulas into the project.
 
@@ -48,5 +48,5 @@ mean the same thing:
 
 The syntax of the custom tooltip block is as follows 
 ```
-(word){hover}
+[word]{hover}
 ```

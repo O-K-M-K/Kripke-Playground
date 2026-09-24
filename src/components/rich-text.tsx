@@ -3,6 +3,8 @@ import Markdown, { type Components } from "react-markdown"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
 import rehypeRaw from "rehype-raw"
+import remarkGfm from "remark-gfm"
+import { rehypeCollapsibleHeadings } from "@/lib/rehypeCollapsibleHeadings"
 import { HoverTerm } from "@/components/hover-term"
 import { DemoBlock } from "@/components/demo-block"
 import { encodeTooltips, TOOLTIP_TAG } from "@/lib/tooltipMarkup"
@@ -90,6 +92,22 @@ function makeComponents(inline: boolean): Components {
         {children}
       </blockquote>
     ),
+    // Every heading is turned into a collapsible section by
+    // rehypeCollapsibleHeadings: the heading is the <summary>, its content the
+    // <details> body. Nested sections indent via the left border.
+    details: ({ children, open }: ElementProps & { open?: boolean }) => (
+      <details open={open} className="my-1 pl-3">
+        {children}
+      </details>
+    ),
+    summary: ({ children }: ElementProps) => (
+      <summary className="-ml-3 flex cursor-pointer list-none items-center gap-2 select-none [&::-webkit-details-marker]:hidden [&_:is(h1,h2,h3,h4,h5,h6)]:my-0">
+        <span className="text-muted-foreground transition-transform [[open]>summary>&]:rotate-90">
+          ▶
+        </span>
+        {children}
+      </summary>
+    ),
   }
   if (inline) {
     components.p = ({ children }: ElementProps) => (
@@ -107,7 +125,7 @@ const blockComponents = makeComponents(false)
 const inlineComponents = makeComponents(true)
 
 interface RichTextProps {
-  /** The Markdown source (with our `(label){hover}` tooltips) to render. */
+  /** The Markdown source (with our `[label]{hover}` tooltips) to render. */
   children: string
   /** Collapse block wrappers so the content renders inline (used for tooltips). */
   inline?: boolean
@@ -115,17 +133,21 @@ interface RichTextProps {
 
 /**
  * Render Markdown extended with `$…$`/`$$…$$` math (via KaTeX) and our
- * `(label){hover}` tooltip syntax.
+ * `[label]{hover}` tooltip syntax.
  *
- *   <RichText>{"A **world** (v){a node $v \\in W$}. $\\forall x$."}</RichText>
+ *   <RichText>{"A **world** [v]{a node $v \\in W$}. $\\forall x$."}</RichText>
  *
  * See {@link encodeTooltips} for the tooltip syntax.
  */
 function RichText({ children, inline = false }: RichTextProps) {
   return (
     <Markdown
-      remarkPlugins={[remarkMath]}
-      rehypePlugins={[rehypeRaw, rehypeKatex]}
+      remarkPlugins={[remarkMath, remarkGfm]}
+      rehypePlugins={
+        inline
+          ? [rehypeRaw, rehypeKatex]
+          : [rehypeRaw, rehypeKatex, rehypeCollapsibleHeadings]
+      }
       components={inline ? inlineComponents : blockComponents}
     >
       {encodeTooltips(children)}

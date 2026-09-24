@@ -11,6 +11,12 @@ export type KripkeModel = {
   adjacency: Map<WorldId, WorldId[]>
 }
 
+// export type KripkeModel = {
+//     worlds: WorldId[]
+//     valuation: Map<WorldId, string[]>
+//     adjacency: Map<WorldId, WorldId[]>
+// }
+
 export type Formula =
     | { tag: "Top" }
     | { tag: "Bot" }

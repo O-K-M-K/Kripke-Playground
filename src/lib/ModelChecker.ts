@@ -37,9 +37,6 @@ export const satisfies = (m : KripkeModel, f: Formula, w: WorldId) : boolean => 
 }
 
 // KripkeModel technically holds all worlds inside  adjacency keys so no need to take in nodes
-// TODO : maybe make it return list of nodes or have app.tsx map over the list of world id's turning them into nodes 
-// so then can easily set colour of each node to show if they are valid or not. Maybe this is best as then can just loop and go if id in list
-// as we don't hold list of invalid worlds in model
 export const validInModel = (m: KripkeModel, f: Formula) : string[] => {
     const worldsIds = Array.from(m.adjacency.keys())
     return worldsIds.filter(w => satisfies(m, f, w))

@@ -12,14 +12,14 @@ Modal logic is a logic that extends prop logic by adding two new symbols. $\Box$
 \- [Introducing modal logic](https://forallx.openlogicproject.org/html/Ch42.html) 
 
 We could write the previous sentences about impossibility in modal logic like this:
-($¬$){Not}($\Diamond$){possible}($A$){for me to run 100mph} where our interpretation of $\Diamond$ is in relation to humanly, physically or logically in each case. It is (not){$¬$} (humanly possible){$\Diamond$} (for me to run 100mph){$A$}
+[$¬$]{Not}[$\Diamond$]{possible}[$A$]{for me to run 100mph} where our interpretation of $\Diamond$ is in relation to humanly, physically or logically in each case. It is [not]{$¬$} [humanly possible]{$\Diamond$} [for me to run 100mph]{$A$}
 
 
-The first interesting thing to recognise about our new opperators is that they are (intuitively connected to each other){this leads to the idea of duals but thats for another time}. 
+The first interesting thing to recognise about our new opperators is that they are [intuitively connected to each other]{this leads to the idea of duals but thats for another time}. 
 
-($\Diamond$){It is possible that} ($p$){I will wear a hat} ($\leftrightarrow$){if and only if} ($¬\Box$){it is not necessary/it is optional} ($¬p$){that I will not wear a hat/for me to not wear a hat} 
+[$\Diamond$]{It is possible that} [$p$]{I will wear a hat} [$\leftrightarrow$]{if and only if} [$¬\Box$]{it is not necessary/it is optional} [$¬p$]{that I will not wear a hat/for me to not wear a hat} 
 
-($\Box$){It is necessary that} ($p$){I will wear a hat} ($\leftrightarrow$){if and only if} ($¬\Diamond$){it is impossible} ($¬p$){that I will not wear a hat} 
+[$\Box$]{It is necessary that} [$p$]{I will wear a hat} [$\leftrightarrow$]{if and only if} [$¬\Diamond$]{it is impossible} [$¬p$]{that I will not wear a hat} 
 
 This leads us nicely to the following vague semantic interpretations:
 
@@ -38,15 +38,15 @@ $¬\Diamond$ impossible/not possible
 # Kripke Frames and Models
 
 ## Frames
-A Kripke frame is a pair is a triple ($\langle W, R, V \rangle$){the angle brackets just mean an ordered pair} where $W$ is a set and $R$ is a (binary relation){associates some elements of set A with some elements of set B} and $V$ is our (valuation function){takes in a prop and returns the worlds where our prop is true}. Elements of $W$ are called worlds, these are the nodes in our graph on the left. $R$ is called the accessibility relation, think of each relation $(w_0,w_1)$ as a edge between $w0$ and $w1$ in our graph. ($V$){our function name} ($:$){has type} ($\text{Prop}$){a simple proposition e.g., $p$} $\to$ ($\mathcal{P}(W)$){powerset of W}. For example if $\text{raining}$ was true at $w0$ and $w2$ but not $w1$ then $V(\text{raining})=\{w0,w2\}$
+A Kripke frame is a pair is a triple [$\langle W, R, V \rangle$]{the angle brackets just mean an ordered pair} where $W$ is a set and $R$ is a [binary relation]{associates some elements of set A with some elements of set B} and $V$ is our [valuation function]{takes in a prop and returns the worlds where our prop is true}. Elements of $W$ are called worlds, these are the nodes in our graph on the left. $R$ is called the accessibility relation, think of each relation $(w_0,w_1)$ as a edge between $w0$ and $w1$ in our graph. [$V$]{our function name} [$:$]{has type} [$\text{Prop}$]{a simple proposition e.g., $p$} $\to$ [$\mathcal{P}(W)$]{powerset of W}. For example if $\text{raining}$ was true at $w0$ and $w2$ but not $w1$ then $V(\text{raining})=\{w0,w2\}$
 
 ## Models
 A Kripke model adds $\Vdash$ to our pair making it the triplet $\langle W,R,\Vdash \rangle$. $\Vdash$ is know as the *satisfaction relation*, a relation between worlds in $W$ and and modal logic formulas. $w \Vdash A$ is read as "w satisfies A". All this lets us represent is that some modal formula $A$ we have written is satisfied by a world. 
 
-So we have three Items, a set of worlds ($W$){the nodes in our graph}, a binary relation ($R$){the edges of our graph}, and the satisfaction relation $\Vdash$. 
+So we have three Items, a set of worlds [$W$]{the nodes in our graph}, a binary relation [$R$]{the edges of our graph}, and the satisfaction relation $\Vdash$. 
 
 
-We define $w \Vdash A$ as ($w$){some world in our model} ($\Vdash$){satisfies} ($p$){some proposition} ($\leftrightarrow$){if and only if} ($p$){that same proposition} ($\in$){is in} ($V(w)$){the set of propositions our valuation function returns for the given world}
+We define $w \Vdash A$ as [$w$]{some world in our model} [$\Vdash$]{satisfies} [$p$]{some proposition} [$\leftrightarrow$]{if and only if} [$p$]{that same proposition} [$\in$]{is in} [$V(w)$]{the set of propositions our valuation function returns for the given world}
 
 Click the button below for the simplest example of this
 ```Demo
@@ -67,11 +67,11 @@ That is to say $\Diamond A$ holds when $A$ is true in at least one world accessi
 Kripke models can be represented as **directed graphs** hence the setup on the left hand side. The following section gently introduces modal logic in conjunction with Kripke Models with examples.
 ### Aside
 If at this point you are wondering why we haven't defined the other operators it is because we can build all the other operators in prop logic from those 4. I didn't even need to define $\Diamond$ as 
-($\Diamond p$){it is possible that p} = ($¬\Box¬p$){it is not necessary that p has to be true}
+[$\Diamond p$]{it is possible that p} = [$¬\Box¬p$]{it is not necessary that p has to be true}
 
 I wont demonstrate the rest here you will just have to trust me.
 
-(From here we can just unwrap the formula using recursion to check if the world satisfies it.){glossed over a full explanation here but its not relevant at the moment so don't worry if you don't get it.}
+[From here we can just unwrap the formula using recursion to check if the world satisfies it.]{glossed over a full explanation here but its not relevant at the moment so don't worry if you don't get it.}
 
 
 ## Examples
@@ -84,7 +84,7 @@ w1: p
 formula: p
 ```
 
-We can build the following (kripke frame){$\langle W, R, V \rangle$}  
+We can build the following [kripke frame]{$\langle W, R, V \rangle$}  
 $$
 \begin{align}
 W &= \{w_0,w_1\} \\
@@ -131,7 +131,7 @@ w2:
 formula: []p
 ```
 
-See how $w_0$ now turns red, that is to say $w_0 \not\Vdash A$. This is because at our newly introduced world $w_2$ $p$ is (false){because its not at the world}. Also notice how $w_2$ is green, that is to say $w_2 \Vdash A$. This is because $w_2$ has no worlds connected to it so trivially it must be true.
+See how $w_0$ now turns red, that is to say $w_0 \not\Vdash A$. This is because at our newly introduced world $w_2$ $p$ is [false]{because its not at the world}. Also notice how $w_2$ is green, that is to say $w_2 \Vdash A$. This is because $w_2$ has no worlds connected to it so trivially it must be true.
 
 
 
@@ -147,7 +147,7 @@ Semantics refer to the meaning of a word, symbol or sentence. In our case we hav
 > All these sentences can be represented as $\Box p$ but the box operator has a different semantic interpretation in each case.
 
 
-Currently we are using the word *world* but we haven't really defined what we mean by that. What does it mean for there to be another *world*? This is intentional as we can assign different meanings to what *world* means in our model allowing us to talk about vastly different things. For example each *world* could represent a (point in time){as in linear temporal logic} or could represent them as (worlds consistent with ones knowledge){epistemic logic} or as (worlds consisten with ones obligations){deontic logic}.
+Currently we are using the word *world* but we haven't really defined what we mean by that. What does it mean for there to be another *world*? This is intentional as we can assign different meanings to what *world* means in our model allowing us to talk about vastly different things. For example each *world* could represent a [point in time]{as in linear temporal logic} or could represent them as [worlds consistent with ones knowledge]{epistemic logic} or as [worlds consisten with ones obligations]{deontic logic}.
 
 
 # Exercise
