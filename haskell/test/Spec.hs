@@ -15,31 +15,26 @@ addReflexive ws rel = foldr (\w -> Map.insertWith Set.union w (Set.singleton w))
 
 
 tempRelation = Map.fromList
-      [ ("1", Set.fromList ["2", "3"])
+      [ ("1", Set.fromList ["2"])
       , ("2", Set.fromList ["3"])
       , ("3", Set.empty)
       ]
 
--- col goes to row
--- [
--- [1,1,1],
--- [0,1,1],
--- [0,0,1]
--- ]
--- need to convert from adjacency list to matrix
+-- successors of a world (empty if it has none)
+succsOf :: Relation -> World -> Set.Set World
+succsOf rel v = Map.findWithDefault Set.empty v rel
 
--- [[World]] rather than [Worlds] because i dont want to fuck w sets rn
---[["ij","01","02"],["10","11","12"],["20","21","22"]]
--- j is columns i is rows
-adjToMat :: Relation -> [[World]]
-adjToMat rel = empty
-    where 
-        n = length (Map.keys rel)
-        empty = [[show i ++ show j| j <- [0..(n-1)]] | i <- [0..(n-1)]]
+-- one step: for each w, add the successors of its successors  (R := R ∪ R∘R)
+step :: Relation -> Relation
+step rel = Map.map (\succs ->
+    Set.union succs (Set.unions [ succsOf rel v | v <- Set.toList succs ])) rel
 
 -- Transative (4)
-transativeClosure :: Relation -> Relation --warshall's algorithm adjacnency matrix
-transativeClosure = undefined
+transitiveClosure :: Relation -> Relation
+transitiveClosure rel =
+    let rel' = step rel
+    in if rel' == rel then rel else transitiveClosure rel'
+
 
 genModel :: [Char] -> Gen Model 
 genModel atoms = do 
@@ -75,8 +70,8 @@ genReflexiveModel atoms = do
 tAxiom :: Formula
 tAxiom = implies (Box (P 'p')) (P 'p')
 
-prop_tAxiom_all :: Property
-prop_tAxiom_all = forAll (genReflexiveModel "p") $ \(ReflexiveModel m) -> all (\mdl -> worlds mdl == validInModel mdl tAxiom) (allValuations m "p")
+prop_tAxiom:: Property
+prop_tAxiom= forAll (genReflexiveModel "p") $ \(ReflexiveModel m) -> all (\mdl -> worlds mdl == validInModel mdl tAxiom) (allValuations m "p")
 
 
 newtype TransativeModel = TransativeModel Model deriving Show 
@@ -101,9 +96,7 @@ kAxiom =
 
 
 prop_kAxiom :: Property 
-prop_kAxiom = forAll (genModel "pq") $ \m -> worlds m == validInModel m kAxiom
-
-
+prop_kAxiom = forAll (genModel "pq") $ \m -> all (\mdl -> worlds mdl == validInModel mdl kAxiom) (allValuations m "pq")
 
 
 fourAxiom :: Formula 
@@ -114,6 +107,6 @@ generic m = worlds m == validInModel m tAxiom
 
 main :: IO ()
 main = do 
-    quickCheck prop_tAxiom_all
-    -- quickCheck prop_tAxiom
+    quickCheck prop_kAxiom
+    quickCheck prop_tAxiom
     -- quickCheck generic
