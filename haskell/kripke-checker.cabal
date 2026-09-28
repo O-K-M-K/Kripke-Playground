@@ -1,0 +1,31 @@
+cabal-version:      3.4
+name:               kripke-checker
+version:            0.1.0.0
+build-type:         Simple
+
+-- shared warning flags
+common warnings
+    ghc-options: -Wall
+
+-- reusable semantics
+library
+    import:           warnings
+    hs-source-dirs:   src
+    exposed-modules:  Kripke.Types
+                      Kripke.Checker
+    -- Data.Map / Data.Set live in containers
+    build-depends:    base
+                    , containers
+    default-language: Haskell2010
+
+-- the QuickCheck runner; test "passes" iff the exe exits 0
+test-suite spec
+    import:           warnings
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Spec.hs
+    build-depends:    base
+                    , containers
+                    , QuickCheck
+                    , kripke-checker
+    default-language: Haskell2010

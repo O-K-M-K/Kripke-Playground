@@ -2,25 +2,33 @@ import type { KripkeModel, WorldId, Formula } from "./ModelTypes"
 
 
 // Building a formula
-export const P = (value: string): Formula => ({ tag: "P", value });
-export const Not = (formula: Formula): Formula => ({ tag: "Not", formula });
-export const And = (left: Formula, right: Formula): Formula => ({ tag: "And", left, right });
-export const Box = (formula: Formula): Formula => ({ tag: "Box", formula });
-export const or = (a : Formula, b: Formula) : Formula => {
-    return {tag : "Not", formula: {tag : "And", left : {tag : "Not", formula: a}, right : {tag : "Not", formula: b}}}
-}
-export const diamond = (f: Formula) : Formula => {
-    return {tag : "Not", formula: {tag : "Box", formula : {tag : "Not", formula: f}}}
-}
-export const implies = (a: Formula, b: Formula) : Formula => {
-    return {tag : "Not", formula : {tag : "And", left : a, right : {tag : "Not", formula : b}}}
-}
+// export const P = (value: string): Formula => ({ tag: "P", value });
+// export const Not = (formula: Formula): Formula => ({ tag: "Not", formula });
+// export const And = (left: Formula, right: Formula): Formula => ({ tag: "And", left, right });
+// export const Box = (formula: Formula): Formula => ({ tag: "Box", formula });
+// export const or = (a : Formula, b: Formula) : Formula => {
+//     return {tag : "Not", formula: {tag : "And", left : {tag : "Not", formula: a}, right : {tag : "Not", formula: b}}}
+// }
+// export const diamond = (f: Formula) : Formula => {
+//     return {tag : "Not", formula: {tag : "Box", formula : {tag : "Not", formula: f}}}
+// }
+// export const implies = (a: Formula, b: Formula) : Formula => {
+//     return {tag : "Not", formula : {tag : "And", left : a, right : {tag : "Not", formula : b}}}
+// }
 
 export const valuation = (
-  model: KripkeModel,
-  world: WorldId,
-  p: string,
-): boolean => model.nodeById.get(world)?.data.propositions.includes(p) ?? false
+    model: KripkeModel,
+    world: WorldId,
+    p: string,
+) : boolean => model.valuation.get(world)?.includes(p) ?? false
+
+
+// given a KripkeModel and world returns the set of props at that world
+// not quite the same as the valuation funcition which should really return a list of worlds
+// export const valuation = (
+//     model: KripkeModel,
+//     world: WorldId,
+// ) : string[] => model.valuation.get(world) ?? []
 
 export const satisfies = (m : KripkeModel, f: Formula, w: WorldId) : boolean => {
     switch (f.tag) {
@@ -33,13 +41,28 @@ export const satisfies = (m : KripkeModel, f: Formula, w: WorldId) : boolean => 
             const connectedSet = m.adjacency.get(w) ?? []
             return Array.from(connectedSet).every((wNext) => satisfies(m, f.formula, wNext))
         }
+        default: { const _: never = f; return _}
     }
 }
 
+
+// export const satisfies = (m : KripkeModel, f: Formula, w: WorldId) : boolean => {
+//     switch (f.tag) {
+//         case "Top" : return true
+//         case "Bot" : return false
+//         case "P" : return valuation(m, w).includes(f.value)
+//         case "Not" : return !satisfies(m, f.formula, w)
+//         case "And" : return (satisfies(m, f.left, w) && satisfies(m, f.right, w))
+//         case "Box" : {
+//             const connectedSet = m.adjacency.get(w) ?? []
+//             return Array.from(connectedSet).every((wNext) => satisfies(m, f.formula, wNext))
+//         }
+//     }
+// }
+
 // KripkeModel technically holds all worlds inside  adjacency keys so no need to take in nodes
 export const validInModel = (m: KripkeModel, f: Formula) : string[] => {
-    const worldsIds = Array.from(m.adjacency.keys())
-    return worldsIds.filter(w => satisfies(m, f, w))
+    return m.worlds.filter(w => satisfies(m, f, w))
 
 }
 

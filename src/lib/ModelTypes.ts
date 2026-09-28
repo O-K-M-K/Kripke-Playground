@@ -4,18 +4,18 @@ export type WorldId = string
 
 // A Kripke model, decoupled from React Flow: just the frontier the checker
 // needs. Both maps are exactly what `Flow` already memoizes in App.tsx.
-export type KripkeModel = {
-  // worldId -> node (carries the label and its valuation via data.propositions)
-  nodeById: Map<WorldId, CircleNode>
-  // worldId -> ids of worlds accessible from it (the accessibility relation)
-  adjacency: Map<WorldId, WorldId[]>
-}
-
 // export type KripkeModel = {
-//     worlds: WorldId[]
-//     valuation: Map<WorldId, string[]>
-//     adjacency: Map<WorldId, WorldId[]>
+//   // worldId -> node (carries the label and its valuation via data.propositions)
+//   nodeById: Map<WorldId, CircleNode>
+//   // worldId -> ids of worlds accessible from it (the accessibility relation)
+//   adjacency: Map<WorldId, WorldId[]>
 // }
+
+export type KripkeModel = {
+    worlds: WorldId[]
+    valuation: Map<WorldId, string[]>
+    adjacency: Map<WorldId, WorldId[]>
+}
 
 export type Formula =
     | { tag: "Top" }

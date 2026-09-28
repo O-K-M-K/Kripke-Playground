@@ -38,7 +38,7 @@ import { RightSidebar } from "@/components/right-sidebar"
 import { layoutNodes, type LayoutAlgorithm } from "@/lib/layout"
 import { parseFormula } from "@/lib/formulaFromAst"
 import { validInModel } from "@/lib/ModelChecker"
-import type { KripkeModel } from "@/lib/ModelTypes"
+import type { KripkeModel, WorldId } from "@/lib/ModelTypes"
 import { LoadModelContext, type LoadModel } from "@/lib/loadModel"
 
 const initialNodes: CircleNode[] = [
@@ -199,17 +199,25 @@ const Flow = () => {
   // The bundle the model checker consumes. Rebuilt only when `modelSignature`
   // changes (worlds, valuations, or edges) — never for a mere position change —
   // so it stays live without churning on every drag frame.
-  const model: KripkeModel = useMemo(() => {
-    const byId = new Map(nodes.map((n) => [n.id, n]))
-    const adjacency = new Map<string, string[]>()
-    // Seed every node so isolated worlds (no outgoing edges) still appear.
-    for (const node of nodes) adjacency.set(node.id, [])
-    for (const edge of edges) adjacency.get(edge.source)?.push(edge.target)
-    return { nodeById: byId, adjacency }
-    // Intentionally keyed on the position-free signature, not nodes/edges.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelSignature])
+  // const model: KripkeModel = useMemo(() => {
+  //   const byId = new Map(nodes.map((n) => [n.id, n]))
+  //   const adjacency = new Map<string, string[]>()
+  //   // Seed every node so isolated worlds (no outgoing edges) still appear.
+  //   for (const node of nodes) adjacency.set(node.id, [])
+  //   for (const edge of edges) adjacency.get(edge.source)?.push(edge.target)
+  //   return { nodeById: byId, adjacency }
+  //   // Intentionally keyed on the position-free signature, not nodes/edges.
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [modelSignature])
 
+  const model: KripkeModel = useMemo(() => {
+    const worlds = nodes.map((n) => n.id)
+    const valuation = new Map(nodes.map((n) => [n.id, n.data.propositions]))
+    const adjacency = new Map<WorldId, WorldId[]>()
+    for (const n of nodes) adjacency.set(n.id, [])
+    for (const e of edges) adjacency.get(e.source)?.push(e.target)
+    return { worlds, valuation, adjacency }
+  }, [modelSignature])
   // Parse the proposition into a checkable Formula whenever it (or the model)
   // changes, then record which worlds satisfy it.
   useEffect(() => {
