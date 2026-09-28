@@ -20,11 +20,9 @@ tempRelation = Map.fromList
       , ("3", Set.empty)
       ]
 
--- successors of a world (empty if it has none)
 succsOf :: Relation -> World -> Set.Set World
 succsOf rel v = Map.findWithDefault Set.empty v rel
 
--- one step: for each w, add the successors of its successors  (R := R ∪ R∘R)
 step :: Relation -> Relation
 step rel = Map.map (\succs ->
     Set.union succs (Set.unions [ succsOf rel v | v <- Set.toList succs ])) rel
@@ -75,6 +73,20 @@ prop_tAxiom= forAll (genReflexiveModel "p") $ \(ReflexiveModel m) -> all (\mdl -
 
 
 newtype TransativeModel = TransativeModel Model deriving Show 
+
+genTransativeModel :: [Char] -> Gen TransativeModel
+genTransativeModel atoms = do 
+        Model ws rel val <- genModel atoms
+        pure (TransativeModel (Model ws (transitiveClosure rel) val))
+
+fourAxiom :: Formula 
+fourAxiom = implies (Box (P 'p')) (Box (Box (P 'p')))
+
+prop_fourAxiom :: Property 
+prop_fourAxiom = forAll (genTransativeModel "p") $ \(TransativeModel m) -> all (\mdl -> worlds mdl == validInModel mdl fourAxiom) (allValuations m "p")
+
+
+
 newtype S4Model = S4Model Model deriving Show
 
 
@@ -99,8 +111,6 @@ prop_kAxiom :: Property
 prop_kAxiom = forAll (genModel "pq") $ \m -> all (\mdl -> worlds mdl == validInModel mdl kAxiom) (allValuations m "pq")
 
 
-fourAxiom :: Formula 
-fourAxiom = implies (Box (P 'p')) (Box (Box (P 'p')))
 
 generic :: Model -> Bool 
 generic m = worlds m == validInModel m tAxiom
@@ -109,4 +119,5 @@ main :: IO ()
 main = do 
     quickCheck prop_kAxiom
     quickCheck prop_tAxiom
+    quickCheck prop_fourAxiom
     -- quickCheck generic
