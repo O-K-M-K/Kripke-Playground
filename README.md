@@ -9,19 +9,6 @@ axioms hold over the frame classes that characterise them.
 
 ### Modules
 
-**`Kripke.Types`** — the core data model.
-
-- `Formula` — the grammar of modal formulae, built from atomic propositions
-  (`P Char`), `Not`, `And`, `Box`, `Top`, and `Bot`. Derived connectives are
-  provided as smart constructors: `or_`, `implies`, and `diamond` (`◇f`,
-  defined as `¬□¬f`).
-- `Model` — a Kripke model `Model { worlds, relation, valuation }` where:
-  - `worlds :: Set World` — the set of world identifiers (`String`).
-  - `relation :: Map World (Set World)` — the accessibility relation, mapping
-    each world to the worlds it can reach.
-  - `valuation :: Map World (Set Props)` — which atomic propositions
-    (`Char`) hold at each world.
-
 **`Kripke.Checker`** — evaluation and validity.
 
 - `verifyModel :: Model -> Bool` — a well-formedness check: every world referenced
