@@ -4,7 +4,7 @@
 
 
 ## Model Validator
-The model validator was initially written in Haskell, which you can find [here](), and then converted to typescript. 
+The model validator was initially written in Haskell, which you can find [here](https://github.com/O-K-M-K/Kripke-Playground/blob/main/haskell/src/Kripke/Checker.hs), and then converted to typescript. The model checker uses property based testing based on the modal systems, which you can find [here](https://github.com/O-K-M-K/Kripke-Playground/blob/main/haskell/test/Spec.hs)
 
 
 ## Graph
