@@ -1,5 +1,11 @@
 # Model Checker
 
+## Next Steps
+
+1. Automatic detection of modal systems / enforcing specific modal systems on an arbritary graph
+2. Dynamic and Epistemic Logic Lessons
+3. Support for [Public Announcement Logic](https://plato.stanford.edu/entries/dynamic-epistemic/index.html#PublAnnoLogi) + example of the muddy children puzzle
+
 ## Haskell
 
 A model checker for [Kripke semantics](https://en.wikipedia.org/wiki/Kripke_semantics)
